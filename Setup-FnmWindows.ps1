@@ -167,7 +167,7 @@ if (-not $hasFnm) {
 
 # -------- DetectOnly exits BEFORE any changes ----------
 if ($DetectOnly) {
-  Write-Step "DetectOnly mode complete — no changes were made."
+  Write-Step "DetectOnly mode complete - no changes were made."
   if ($Shells -contains 'cmd')     { Write-Host "To enable fnm in cmd later: run this script without -DetectOnly." }
   if ($Shells -contains 'gitbash') { Write-Host "To enable fnm in Git Bash later: run this script without -DetectOnly." }
   exit 0
@@ -179,7 +179,7 @@ if ($DetectOnly) {
 if (-not $hasFnm) {
   Write-Step "Checking for winget"
   if (-not (Test-Command -Name "winget")) {
-    Write-Host "❌ winget not found. Install 'App Installer' from the Microsoft Store, then re-run." -ForegroundColor Red
+    Write-Host "$([char]0x274C) winget not found. Install 'App Installer' from the Microsoft Store, then re-run." -ForegroundColor Red
     exit 1
   }
 
