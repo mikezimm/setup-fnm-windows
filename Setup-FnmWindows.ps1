@@ -25,10 +25,16 @@ function Test-Command {
 }
 
 function Write-Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
-function Write-Ok($msg)   { Write-Host "✔ $msg" -ForegroundColor Green }
-function Write-Skip($msg) { Write-Host "↷ $msg" -ForegroundColor DarkYellow }
-function Write-Warn($msg) { Write-Host "⚠ $msg" -ForegroundColor Yellow }
-function Write-Do ($msg)  { if ($DryRun) { Write-Host "[DRY RUN] $msg" -ForegroundColor Magenta } else { Write-Host "$msg" } }
+function Write-Ok($msg)   { Write-Host "$([char]0x2714) $msg" -ForegroundColor Green }
+function Write-Skip($msg) { Write-Host "$([char]0x26A0) $msg" -ForegroundColor DarkYellow }
+function Write-Warn($msg) { Write-Host "$([char]0x21B7) $msg" -ForegroundColor Yellow }
+function Write-Do ($msg)  {
+  if ($DryRun) {
+    Write-Host "[DRY RUN] $msg" -ForegroundColor Magenta
+  } else {
+    Write-Host "$msg"
+  }
+}
 
 # Resolve the actual Documents folder (handles OneDrive Known Folder Move)
 function Get-DocumentsPath {
@@ -41,12 +47,15 @@ function Get-DocumentsPath {
 
 # Refresh PATH from registry (safe enum overload to avoid "User" parser issues)
 function Refresh-ProcessPath {
-  if ($DryRun) { Write-Do "Would refresh process PATH from registry (User + Machine)"; return }
+  if ($DryRun) {
+    Write-Do "Would refresh process PATH from registry (User + Machine)"
+    return
+  }
 
-  $userPath = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User)
+  $userPath    = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User)
   $machinePath = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Machine)
+  $newPath     = @($userPath, $machinePath) -join ';'
 
-  $newPath = @($userPath, $machinePath) -join ';'
   if (-not [string]::IsNullOrWhiteSpace($newPath)) {
     $env:Path = $newPath
     Write-Ok "Refreshed process PATH from registry"
@@ -61,7 +70,8 @@ function Ensure-LineInFile {
     [Parameter(Mandatory)][string]$Path,
     [Parameter(Mandatory)][string]$Line
   )
-  $dir = Split-Path $Path
+
+  $dir             = Split-Path $Path
   $needsCreateDir  = -not (Test-Path $dir)
   $needsCreateFile = -not (Test-Path $Path)
 
@@ -71,7 +81,10 @@ function Ensure-LineInFile {
   $content = if (Test-Path $Path) { Get-Content -LiteralPath $Path -ErrorAction SilentlyContinue } else { @() }
   $hasLine = $content -and (($content -join "`n") -match [regex]::Escape($Line))
 
-  if ($hasLine) { Write-Skip "Already configured: $Path"; return }
+  if ($hasLine) {
+    Write-Skip "Already configured: $Path"
+    return
+  }
 
   if ($DryRun) {
     Write-Do "Would append line to $($Path):`n$Line"
@@ -83,7 +96,7 @@ function Ensure-LineInFile {
   }
 }
 
-# Try to find fnm.exe directly if PATH isn't updated yet (no one-line semicolons)
+# Try to find fnm.exe directly if PATH isn't updated yet
 function Resolve-FnmPath {
   $cmd = Get-Command fnm -ErrorAction SilentlyContinue
   if ($cmd) { return $cmd.Path }
@@ -94,6 +107,7 @@ function Resolve-FnmPath {
     (Join-Path $env:ProgramFiles  'fnm\fnm.exe'),
     (Join-Path $env:ProgramFiles  'Fnm\fnm.exe')
   )
+
   foreach ($p in $candidates) {
     if (Test-Path $p) {
       $dir = Split-Path $p
@@ -108,17 +122,23 @@ function Resolve-FnmPath {
       return $p
     }
   }
+
   return $null
 }
 
 # SAFE nvm-windows detection (no executing nvm.exe -> no popup)
 function Detect-Nvm {
   if ($env:NVM_HOME -or $env:NVM_SYMLINK) { return $true }
+
   $candidates = @(
     (Join-Path $env:LOCALAPPDATA 'nvm\nvm.exe'),
     (Join-Path $env:ProgramFiles  'nvm\nvm.exe')
   )
-  foreach ($p in $candidates) { if (Test-Path $p) { return $true } }
+
+  foreach ($p in $candidates) {
+    if (Test-Path $p) { return $true }
+  }
+
   return $false
 }
 
@@ -171,17 +191,16 @@ if (-not $hasFnm) {
   }
 
   # Make the current session aware of fnm (skip in DryRun)
-    if (-not $DryRun) {
-        if (Get-Command Refresh-ProcessPath -CommandType Function -ErrorAction SilentlyContinue) {
-            Refresh-ProcessPath
-        } else {
-            Write-Skip "Refresh-ProcessPath not available; skipping PATH refresh"
-        }
+  if (-not $DryRun) {
+    if (Test-Path Function:\Refresh-ProcessPath) {
+      Refresh-ProcessPath
+    } else {
+      Write-Skip "Refresh-ProcessPath not available; skipping PATH refresh"
     }
-
+  }
 
   $fnmPath = Resolve-FnmPath
-  $hasFnm = [bool]$fnmPath
+  $hasFnm  = [bool]$fnmPath
   if (-not $hasFnm) { $hasFnm = Test-Command -Name "fnm" }
 
   if ($hasFnm) {
@@ -204,13 +223,15 @@ $RecursiveFlag = '--version-file-strategy=recursive'
 # -------------------------
 if ($Shells -contains 'pwsh') {
   Write-Step "Configuring PowerShell profiles for fnm"
-  $docs = Get-DocumentsPath
+
+  $docs       = Get-DocumentsPath
   $ps5Profile = Join-Path $docs 'WindowsPowerShell\Microsoft.PowerShell_profile.ps1'
   $ps7Profile = Join-Path $docs 'PowerShell\Microsoft.PowerShell_profile.ps1'
   $psSnippet  = "fnm env --use-on-cd $RecursiveFlag --shell powershell | Out-String | Invoke-Expression"
 
   Ensure-LineInFile -Path $ps5Profile -Line $psSnippet
   Ensure-LineInFile -Path $ps7Profile -Line $psSnippet
+
   if ($docs -like "*OneDrive*") { Write-Skip "Detected OneDrive Documents path: $docs" }
 
   # Reload current host's profile so fnm is active right away here
@@ -236,8 +257,10 @@ if ($Shells -contains 'pwsh') {
 # -------------------------
 if ($Shells -contains 'gitbash') {
   Write-Step "Configuring Git Bash (~/.bashrc) for fnm"
-  $bashrc = Join-Path $env:USERPROFILE '.bashrc'
+
+  $bashrc      = Join-Path $env:USERPROFILE '.bashrc'
   $bashSnippet = 'eval "$(fnm env --use-on-cd --version-file-strategy=recursive --shell bash)"'
+
   Ensure-LineInFile -Path $bashrc -Line $bashSnippet
   Write-Skip "Open a NEW Git Bash window to use fnm (current PowerShell session cannot reload Git Bash)."
 }
@@ -247,8 +270,9 @@ if ($Shells -contains 'gitbash') {
 # -------------------------
 if ($Shells -contains 'cmd') {
   Write-Step "Configuring Command Prompt (cmd) AutoRun for fnm"
+
   $profileCmd = Join-Path $env:USERPROFILE 'profile.cmd'
-$cmdScript = @"
+  $cmdScript  = @"
 @echo off
 REM Guard to prevent recursion
 if not defined FNM_AUTORUN_GUARD (
@@ -294,6 +318,7 @@ if not defined FNM_AUTORUN_GUARD (
 # -------------------------
 if ($NodeVersion) {
   Write-Step "Installing Node.js version '$NodeVersion' with fnm"
+
   if ($DryRun) {
     Write-Do "Would run: fnm install $NodeVersion"
     Write-Do "Would run: fnm default $NodeVersion"
@@ -302,9 +327,11 @@ if ($NodeVersion) {
     try {
       & $FnmCmd install $NodeVersion | Out-Null
       Write-Ok "Installed Node '$NodeVersion'"
+
       Write-Step "Setting default Node to '$NodeVersion'"
       & $FnmCmd default $NodeVersion | Out-Null
       Write-Ok "Default Node set to '$NodeVersion'"
+
       try {
         & $FnmCmd use $NodeVersion | Out-Null
         $ver = node --version
