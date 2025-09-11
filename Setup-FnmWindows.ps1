@@ -1,4 +1,4 @@
-﻿param(
+param(
   # Choose which shells to configure.
   [Parameter()]
   [ValidateSet('pwsh','cmd','gitbash')]
