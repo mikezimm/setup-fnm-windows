@@ -25,6 +25,7 @@ This script is intended to make it easy to set up `fnm` on a user’s machine. I
 ## Parameters
 
 ### `-Shells`
+
 Which shells to configure. Accepts one or more of:
 
 - `pwsh` – PowerShell (Windows PowerShell 5.x and PowerShell 7+)
@@ -38,6 +39,7 @@ Default: `pwsh,cmd,gitbash`
 ```
 
 ### `-NodeVersion`
+
 Install and set a default Node.js version using fnm.
 
 ```powershell
@@ -46,6 +48,7 @@ Install and set a default Node.js version using fnm.
 ```
 
 ### `-DetectOnly`
+
 Only check for nvm, fnm, and Node.js. Print findings and exit.  
 No installations, file edits, or registry changes are made.
 
@@ -54,6 +57,7 @@ No installations, file edits, or registry changes are made.
 ```
 
 ### `-DryRun`
+
 Preview what changes would be made (file writes, registry edits, installs).  
 No actual modifications are made.
 
@@ -66,21 +70,25 @@ No actual modifications are made.
 ## Usage Examples
 
 ### Detect environment only
+
 ```powershell
 .\Setup-FnmWindows.ps1 -DetectOnly
 ```
 
 ### Preview changes for PowerShell and cmd
+
 ```powershell
 .\Setup-FnmWindows.ps1 -Shells pwsh,cmd -DryRun
 ```
 
 ### Install fnm, configure all shells, and install Node.js 22
+
 ```powershell
 .\Setup-FnmWindows.ps1 -Shells pwsh,cmd,gitbash -NodeVersion 22
 ```
 
 ### Configure only PowerShell (no Node install)
+
 ```powershell
 .\Setup-FnmWindows.ps1 -Shells pwsh
 ```
@@ -106,6 +114,7 @@ node --version
 - If **nvm-windows** is detected, you should uninstall it before using fnm (they conflict in how they manage Node.js).
 - If a **system Node.js** is detected and fnm is not installed yet, the script recommends uninstalling system Node to avoid conflicts.
 - Requires **winget** (App Installer) to install fnm. If missing, install App Installer from the Microsoft Store.
+- Requires the ability to **executes scripts** on your local machine, [Set-Execution Policy](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy?view=powershell-7.5).
 
 ---
 
