@@ -211,10 +211,6 @@ if (-not $hasFnm) {
   }
 }
 
-# Ensure we have an invokable fnm command (path or name)
-$resolvedFnm = Resolve-FnmPath
-if ($resolvedFnm) { $Global:FnmCmd = $resolvedFnm } else { $Global:FnmCmd = 'fnm' }
-
 # Shared flag for all shells
 $RecursiveFlag = '--version-file-strategy=recursive'
 
@@ -325,22 +321,30 @@ if ($NodeVersion) {
     Write-Do "Would run: fnm use $NodeVersion"
   } else {
     try {
-      & $FnmCmd install $NodeVersion | Out-Null
+      # Ensure we have an invokable fnm command (path or name)
+      $resolvedFnm = Resolve-FnmPath
+      if ($resolvedFnm) {
+        $script:FnmExe = [string]$resolvedFnm
+      } else {
+        $script:FnmExe = [string](Get-Command 'fnm' -ErrorAction Stop).Source
+      }
+
+      & $script:FnmExe install $NodeVersion | Out-Null
       Write-Ok "Installed Node '$NodeVersion'"
 
       Write-Step "Setting default Node to '$NodeVersion'"
-      & $FnmCmd default $NodeVersion | Out-Null
+      & $script:FnmExe default $NodeVersion | Out-Null
       Write-Ok "Default Node set to '$NodeVersion'"
 
       try {
-        & $FnmCmd use $NodeVersion | Out-Null
+        & $script:FnmExe use $NodeVersion | Out-Null
         $ver = node --version
         Write-Ok "Active Node now $ver (if not, open a NEW PowerShell window)"
       } catch {
         Write-Skip "Could not activate in current session; open a NEW PowerShell window."
       }
     } catch {
-      Write-Host "❌ Failed to install/use Node version '$NodeVersion': $($_.Exception.Message)" -ForegroundColor Red
+      Write-Host "$([char]0x274C) Failed to install/use Node version '$NodeVersion': $($_.Exception.Message)" -ForegroundColor Red
     }
   }
 }
@@ -354,7 +358,7 @@ try {
     Write-Do "Would run: fnm --version"
     Write-Ok "fnm presence validation simulated (dry run)."
   } else {
-    $fnmVer = & $FnmCmd --version
+    $fnmVer = & $script:FnmExe --version
     Write-Ok "fnm present ($fnmVer)"
   }
 } catch {
