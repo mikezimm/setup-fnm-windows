@@ -28,7 +28,7 @@ function Write-Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "$([char]0x2714) $msg" -ForegroundColor Green }
 function Write-Skip($msg) { Write-Host "$([char]0x26A0) $msg" -ForegroundColor DarkYellow }
 function Write-Warn($msg) { Write-Host "$([char]0x21B7) $msg" -ForegroundColor Yellow }
-function Write_Error($msg) { Write-host "$([char]0x274C) $msg" -ForegroundColor Red }
+function Write-CustomError($msg) { Write-host "$([char]0x274C) $msg" -ForegroundColor Red }
 function Write-Do ($msg)  {
   if ($DryRun) {
     Write-Host "[DRY RUN] $msg" -ForegroundColor Magenta
@@ -180,7 +180,7 @@ if ($DetectOnly) {
 if (-not $hasFnm) {
   Write-Step "Checking for winget"
   if (-not (Test-Command -Name "winget")) {
-    Write-Error "winget not found. Install 'App Installer' from the Microsoft Store, then re-run."
+    Write-CustomError "winget not found. Install 'App Installer' from the Microsoft Store, then re-run."
     exit 1
   }
 
@@ -208,7 +208,7 @@ if (-not $hasFnm) {
     if ($fnmPath) { $ver = & $fnmPath --version 2>$null } else { $ver = & fnm --version 2>$null }
     Write-Ok "fnm installed ($ver)"
   } else {
-    Write-Error "fnm installation succeeded but the command isn't resolvable in this session. Try opening a new shell."
+    Write-CustomError "fnm installation succeeded but the command isn't resolvable in this session. Try opening a new shell."
   }
 }
 
@@ -352,7 +352,7 @@ if ($NodeVersion) {
         Write-Skip "Could not activate in current session; open a NEW PowerShell window."
       }
     } catch {
-      Write-Error "Failed to install/use Node version '$NodeVersion': $($_.Exception.Message)"
+      Write-CustomError "Failed to install/use Node version '$NodeVersion': $($_.Exception.Message)"
     }
   }
 }
