@@ -1,4 +1,4 @@
-param(
+﻿param(
   # Choose which shells to configure.
   [Parameter()]
   [ValidateSet('pwsh','cmd','gitbash')]
@@ -30,12 +30,6 @@ function Write-Skip($msg) { Write-Host "↷ $msg" -ForegroundColor DarkYellow }
 function Write-Warn($msg) { Write-Host "⚠ $msg" -ForegroundColor Yellow }
 function Write-Do ($msg)  { if ($DryRun) { Write-Host "[DRY RUN] $msg" -ForegroundColor Magenta } else { Write-Host "$msg" } }
 
-# Execute an action only if not DryRun.
-function Invoke-IfNotDryRun {
-  param([Parameter(Mandatory)][scriptblock]$Action)
-  if (-not $DryRun) { & $Action }
-}
-
 # Resolve the actual Documents folder (handles OneDrive Known Folder Move)
 function Get-DocumentsPath {
   $docs = [Environment]::GetFolderPath('MyDocuments')
@@ -45,15 +39,19 @@ function Get-DocumentsPath {
   return $docs
 }
 
-# Refresh PATH from registry so winget-installed tools are seen immediately
+# Refresh PATH from registry (safe enum overload to avoid "User" parser issues)
 function Refresh-ProcessPath {
   if ($DryRun) { Write-Do "Would refresh process PATH from registry (User + Machine)"; return }
-  $userPath    = [Environment]::GetEnvironmentVariable('Path','User')
-  $machinePath = [Environment]::GetEnvironmentVariable('Path','Machine')
+
+  $userPath = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::User)
+  $machinePath = [Environment]::GetEnvironmentVariable('Path', [System.EnvironmentVariableTarget]::Machine)
+
   $newPath = @($userPath, $machinePath) -join ';'
   if (-not [string]::IsNullOrWhiteSpace($newPath)) {
     $env:Path = $newPath
     Write-Ok "Refreshed process PATH from registry"
+  } else {
+    Write-Skip "Registry PATH values were empty; left current process PATH unchanged"
   }
 }
 
@@ -64,7 +62,7 @@ function Ensure-LineInFile {
     [Parameter(Mandatory)][string]$Line
   )
   $dir = Split-Path $Path
-  $needsCreateDir = -not (Test-Path $dir)
+  $needsCreateDir  = -not (Test-Path $dir)
   $needsCreateFile = -not (Test-Path $Path)
 
   if ($needsCreateDir)  { Write-Do "Would create directory: $dir" }
@@ -73,10 +71,7 @@ function Ensure-LineInFile {
   $content = if (Test-Path $Path) { Get-Content -LiteralPath $Path -ErrorAction SilentlyContinue } else { @() }
   $hasLine = $content -and (($content -join "`n") -match [regex]::Escape($Line))
 
-  if ($hasLine) {
-    Write-Skip "Already configured: $Path"
-    return
-  }
+  if ($hasLine) { Write-Skip "Already configured: $Path"; return }
 
   if ($DryRun) {
     Write-Do "Would append line to $($Path):`n$Line"
@@ -88,7 +83,7 @@ function Ensure-LineInFile {
   }
 }
 
-# Try to find fnm.exe directly if PATH isn't updated yet
+# Try to find fnm.exe directly if PATH isn't updated yet (no one-line semicolons)
 function Resolve-FnmPath {
   $cmd = Get-Command fnm -ErrorAction SilentlyContinue
   if ($cmd) { return $cmd.Path }
@@ -96,15 +91,19 @@ function Resolve-FnmPath {
   $candidates = @(
     (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\fnm.exe'),
     (Join-Path $env:LOCALAPPDATA 'Programs\fnm\fnm.exe'),
-    (Join-Path $env:ProgramFiles    'fnm\fnm.exe'),
-    (Join-Path $env:ProgramFiles    'Fnm\fnm.exe')
+    (Join-Path $env:ProgramFiles  'fnm\fnm.exe'),
+    (Join-Path $env:ProgramFiles  'Fnm\fnm.exe')
   )
   foreach ($p in $candidates) {
     if (Test-Path $p) {
       $dir = Split-Path $p
       if ($env:Path -notlike "*$dir*") {
-        if ($DryRun) { Write-Do "Would temporarily add '$dir' to PATH" }
-        else { $env:Path = "$dir;$env:Path"; Write-Ok "Temporarily added '$dir' to PATH" }
+        if ($DryRun) {
+          Write-Do "Would temporarily add '$dir' to PATH"
+        } else {
+          $env:Path = ($dir + ';' + $env:Path)
+          Write-Ok ("Temporarily added '{0}' to PATH" -f $dir)
+        }
       }
       return $p
     }
@@ -146,6 +145,7 @@ if (-not $hasFnm) {
   Write-Ok "fnm already installed ($fnmVer)"
 }
 
+# -------- DetectOnly exits BEFORE any changes ----------
 if ($DetectOnly) {
   Write-Step "DetectOnly mode complete — no changes were made."
   if ($Shells -contains 'cmd')     { Write-Host "To enable fnm in cmd later: run this script without -DetectOnly." }
@@ -170,8 +170,16 @@ if (-not $hasFnm) {
     winget install -e --id Schniz.fnm --accept-source-agreements --accept-package-agreements
   }
 
-  # Make the current session aware of fnm
-  Refresh-ProcessPath
+  # Make the current session aware of fnm (skip in DryRun)
+    if (-not $DryRun) {
+        if (Get-Command Refresh-ProcessPath -CommandType Function -ErrorAction SilentlyContinue) {
+            Refresh-ProcessPath
+        } else {
+            Write-Skip "Refresh-ProcessPath not available; skipping PATH refresh"
+        }
+    }
+
+
   $fnmPath = Resolve-FnmPath
   $hasFnm = [bool]$fnmPath
   if (-not $hasFnm) { $hasFnm = Test-Command -Name "fnm" }
