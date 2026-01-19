@@ -128,19 +128,42 @@ function Resolve-FnmPath {
 }
 
 # SAFE nvm-windows detection (no executing nvm.exe -> no popup)
+# function Detect-Nvm {
+#   if ($env:NVM_HOME -or $env:NVM_SYMLINK) { return $true }
+
+#   $candidates = @(
+#     (Join-Path $env:LOCALAPPDATA 'nvm\nvm.exe'),
+#     (Join-Path $env:ProgramFiles  'nvm\nvm.exe')
+#   )
+
+#   foreach ($p in $candidates) {
+#     if (Test-Path $p) { return $true }
+#   }
+
+#   return $false
+# }
+
+# SAFE nvm-windows detection (no executing nvm.exe -> no popup)
 function Detect-Nvm {
-  if ($env:NVM_HOME -or $env:NVM_SYMLINK) { return $true }
+    if ($env:NVM_HOME -or $env:NVM_SYMLINK) {
+        Write-Host "Detected: NVM_HOME or NVM_SYMLINK env var exists"
+        return $true
+    }
 
-  $candidates = @(
-    (Join-Path $env:LOCALAPPDATA 'nvm\nvm.exe'),
-    (Join-Path $env:ProgramFiles  'nvm\nvm.exe')
-  )
+    $candidates = @(
+        (Join-Path $env:LOCALAPPDATA 'nvm\nvm.exe'),
+        (Join-Path $env:ProgramFiles  'nvm\nvm.exe')
+    )
 
-  foreach ($p in $candidates) {
-    if (Test-Path $p) { return $true }
-  }
+    foreach ($p in $candidates) {
+        if (Test-Path $p) {
+            Write-Host "Detected: nvm.exe exists at $p"
+            return $true
+        }
+    }
 
-  return $false
+    Write-Host "Detect-Nvm checked env vars and folders: no nvm found"
+    return $false
 }
 
 # -------------------------
